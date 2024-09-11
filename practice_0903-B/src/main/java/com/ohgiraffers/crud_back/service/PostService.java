@@ -1,11 +1,18 @@
 package com.ohgiraffers.crud_back.service;
 
+import com.ohgiraffers.crud_back.model.dto.PostDTO;
 import com.ohgiraffers.crud_back.model.entity.PostEntity;
 import com.ohgiraffers.crud_back.repository.PostRepository;
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -16,38 +23,72 @@ public class PostService {
     private final PostRepository postRepository;
 
     @Value("${ftp.server}")
-    private String FTP_SERVER;
+    private String server;
 
     @Value("${ftp.port}")
-    private int FTP_PORT;
+    private int port;
+
+    @Value("${ftp.username}")
+    private String user;
+
+    @Value("${ftp.password}")
+    private String pass;
+
+    @Value("${file.server.url}")
+    private String fileServerUrl;
 
     @Autowired
     public PostService(PostRepository postRepository) {
         this.postRepository = postRepository;
     }
 
-    public List<PostEntity> getAllPosts() {
+    // PostDTO 받아서 게시글등록
+    public PostEntity createPost(PostDTO postDTO){
+        PostEntity postEntity = toPostEntity(postDTO);
+        return postRepository.save(postEntity);
+    }
+    private PostEntity toPostEntity(PostDTO postDTO) {
+        PostEntity postEntity = new PostEntity.Builder()
+                .title(postDTO.getTitle())
+                .content(postDTO.getContent())
+                .author(postDTO.getAuthor())
+                .imagePath(postDTO.getImagePath())
+                .build();
+        return postEntity;
+    }
+
+    // 모든 게시글을 조회하고 각 게시글에 이미지 URL 추가 = 전체 목록
+    public List<PostDTO> getAllPosts() {
         return postRepository.findAll().stream()
                 .map(this::enhancePostWithImageUrl)
                 .collect(Collectors.toList());
     }
 
-    public PostEntity createPost(PostEntity postEntity) {
-        if (postEntity.getAuthor() == null || postEntity.getAuthor().isEmpty()) {
-            throw new IllegalArgumentException("작성자가 비거나 널값이면 안돼유");
-        }
-        return postRepository.save(postEntity);
+//  ID로 게시글을 조회하고 이미지 URL 추가하는 메서드 = 상세 조회
+    public Optional<PostDTO> getPostById(Long id) {
+        return postRepository.findById(id)
+                .map(this::enhancePostWithImageUrl);
     }
 
-    public Optional<PostEntity> getPostById(Long id) {
-        return postRepository.findById(id).map(this::enhancePostWithImageUrl);
-    }
+    private PostDTO enhancePostWithImageUrl(PostEntity post) {
 
-    private PostEntity enhancePostWithImageUrl(PostEntity post) {
         if (post.getImagePath() != null && !post.getImagePath().isEmpty()) {
-            String ftpUrl = String.format("ftp://%s:%d/%s", FTP_SERVER, FTP_PORT, post.getImagePath());
-            post.setImagePath(ftpUrl);
+            String imageUrl = String.format("/api/images/%s", post.getImagePath());
+            post.setImagePath(imageUrl);
         }
-        return post;
+
+        PostDTO dto = convertToDTO(post);
+        return dto;
     }
+
+    private PostDTO convertToDTO(PostEntity entity) {
+        return new PostDTO.Builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .content(entity.getContent())
+                .author(entity.getAuthor())
+                .imagePath(entity.getImagePath())  // 수정: imagePath 사용
+                .build();
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.ohgiraffers.crud_back.controller.controller;
 
+import com.ohgiraffers.crud_back.model.dto.PostDTO;
 import com.ohgiraffers.crud_back.model.entity.PostEntity;
 import com.ohgiraffers.crud_back.service.PostService;
 import org.apache.commons.net.ftp.FTP;
@@ -7,11 +8,14 @@ import org.apache.commons.net.ftp.FTPClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 @RestController
@@ -35,27 +39,33 @@ public class PostController {
     }
 
     @GetMapping("/post")
-    public ResponseEntity<List<PostEntity>> getAllPosts() {
+    public ResponseEntity<List<PostDTO>> getAllPosts() {
         return ResponseEntity.ok(postService.getAllPosts());
     }
 
+    // 게시물 등록
     @PostMapping("/post")
     public ResponseEntity<PostEntity> createPost(
             @RequestParam("title") String title,
             @RequestParam("content") String content,
             @RequestParam("author") String author,
             @RequestParam(value = "image", required = false) MultipartFile image) {
-        PostEntity postEntity = new PostEntity();
-        postEntity.setTitle(title);
-        postEntity.setContent(content);
-        postEntity.setAuthor(author);
+            // required = false 덕분에 이미지 파일을 선택적으로 받을 수 있음
+            // 사용자가 사진을 첨부하지 않고 요청을 보내면, image 의 값은 null
 
+        // 기본 DTO 생성 (이미지 경로는 아직 설정되지 않음)
+        PostDTO.Builder builder = new PostDTO.Builder()
+                .title(title)
+                .content(content)
+                .author(author);
+
+        // 이미지 파일이 있는 경우 처리
         if (image != null && !image.isEmpty()) {
             String fileName = System.currentTimeMillis() + "_" + image.getOriginalFilename();
             try {
                 boolean uploaded = uploadFileToFTP(image, fileName);
                 if (uploaded) {
-                    postEntity.setImagePath(fileName);
+                    builder.imagePath(fileName);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -63,11 +73,17 @@ public class PostController {
             }
         }
 
-        PostEntity createdPostEntity = postService.createPost(postEntity);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdPostEntity);
+        // 최종 DTO 객체 생성
+        PostDTO postDTO = builder.build();
+
+        // @service 로 넘김.
+        postService.createPost(postDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+
     }
 
     private boolean uploadFileToFTP(MultipartFile file, String fileName) throws IOException {
+
         FTPClient ftpClient = new FTPClient();
         try {
             ftpClient.connect(FTP_SERVER, FTP_PORT);
@@ -93,11 +109,48 @@ public class PostController {
     }
 
     @GetMapping("/post/{id}")
-    public ResponseEntity<PostEntity> getPostById(@PathVariable Long id) {
+    public ResponseEntity<PostDTO> getPostById(@PathVariable Long id) {
         return postService.getPostById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @GetMapping("/images/{imageName}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String imageName) throws IOException {
+
+        FTPClient ftpClient = new FTPClient();
+
+        try {// FTP 연결 및 파일 처리
+            ftpClient.connect(FTP_SERVER, FTP_PORT);
+            ftpClient.login(FTP_USER, FTP_PASSWORD);
+            ftpClient.enterLocalPassiveMode();
+
+            try (InputStream inputStream = ftpClient.retrieveFileStream(imageName)) {
+                if (inputStream == null) {
+                    return ResponseEntity.notFound().build();
+                }
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+                byte[] imageBytes = outputStream.toByteArray();
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(imageBytes);
+            }
+        } finally { // FTP 연결 종료
+            if (ftpClient.isConnected()) {
+                ftpClient.logout();
+                ftpClient.disconnect();
+            }
+        }
+    }
+
+
+
+
 
 
 }

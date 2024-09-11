@@ -25,5 +25,12 @@ ftp:
   username: connectium
   password: connectium
 
+file:
+  server:
+    url: http://1.214.19.22:2121
+
+#cors:
+#  allowed-origins: http://localhost:8080, http://your-frontend-domain.com
+
 
 

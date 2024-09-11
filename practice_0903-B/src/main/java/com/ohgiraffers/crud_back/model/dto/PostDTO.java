@@ -1,5 +1,7 @@
 package com.ohgiraffers.crud_back.model.dto;
 
+import org.springframework.web.multipart.MultipartFile;
+
 public class PostDTO {
 
     private Long id;
@@ -8,57 +10,64 @@ public class PostDTO {
     private String author;
     private String imagePath;
 
-    public PostDTO() {
+    private PostDTO(Builder builder) {
+        this.id = builder.id;
+        this.title = builder.title;
+        this.content = builder.content;
+        this.author = builder.author;
+        this.imagePath = builder.imagePath;
     }
 
-    public PostDTO(Long id, String title, String content, String author, String imagePath) {
-        this.id = id;
-        this.title = title;
-        this.content = content;
-        this.author = author;
-        this.imagePath = imagePath;
+    public static class Builder{
+
+        private Long id;
+        private String title;
+        private String content;
+        private String author;
+        private String imagePath;
+
+        public Builder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public Builder content(String content) {
+            this.content = content;
+            return this;
+        }
+
+        public Builder author(String author) {
+            this.author = author;
+            return this;
+        }
+
+        public Builder imagePath(String imagePath) {
+            this.imagePath = imagePath;
+            return this;
+        }
+
+        public PostDTO build() {
+            return new PostDTO(this);
+        }
+
     }
 
-    public Long getId() {
-        return id;
+    public Long getId() { return id; }
+    public String getTitle() { return title; }
+    public String getContent() { return content; }
+    public String getAuthor() { return author; }
+    public String getImagePath() { return imagePath; }
+
+    public void setImagePath(String imageUrl) {
+        this.imagePath = imageUrl;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(String author) {
-        this.author = author;
-    }
-
-    public String getImagePath() {
-        return imagePath;
-    }
-
-    public void setImagePath(String imagePath) {
-        this.imagePath = imagePath;
-    }
-
+    // toString method
     @Override
     public String toString() {
         return "PostDTO{" +
@@ -70,3 +79,11 @@ public class PostDTO {
                 '}';
     }
 }
+
+
+
+
+
+
+
+
